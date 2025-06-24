@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مدیریت تسک‌های من</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Shabnam Font CDN -->
+    <link href="https://cdn.fontcdn.ir/Font/Persian/Shabnam/Shabnam.css" rel="stylesheet" type="text/css" />
+
+    <style>
+        /* Apply Shabnam font to all elements within the body */
+        body {
+            font-family: 'Shabnam', sans-serif;
+            background-color: #f0f4f8; /* Light gray-blue background */
+        }
+        .task-priority-low { background-color: #d1fae5; color: #065f46; border-left: 4px solid #10b981; } /* Green */
+        .task-priority-medium { background-color: #fef9c3; color: #854d09; border-left: 4px solid #fcd34d; } /* Yellow */
+        .task-priority-high { background-color: #fee2e2; color: #991b1b; border-left: 4px solid #ef4444; } /* Red */
+        .task-completed {
+            text-decoration: line-through;
+            opacity: 0.6;
+            background-color: #e2e8f0; /* Lighter grey for completed tasks */
+            border-left: 4px solid #94a3b8; /* Grey border for completed */
+        }
+        .modal-overlay {
+            display: none; /* Hidden by default */
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.4);
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background-color: #ffffff;
+            padding: 2rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            max-width: 600px;
+            width: 90%;
+        }
+        .drop-target-active {
+            border: 2px dashed #3b82f6; /* Blue dashed border for drag over */
+            background-color: #e0f2fe; /* Light blue background */
+        }
+        /* Custom scrollbar for task lists */
+        .task-list-scroll {
+            max-height: 500px; /* Adjust as needed */
+            overflow-y: auto;
+        }
+        .task-list-scroll::-webkit-scrollbar {
+            width: 8px;
+        }
+        .task-list-scroll::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        .task-list-scroll::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        .task-list-scroll::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center p-4 min-h-screen">
+
+    <div class="container bg-white p-6 md:p-8 rounded-xl shadow-lg w-full max-w-4xl mt-8">
+        <!-- User Name Section -->
+        <div class="mb-6 bg-purple-50 p-4 rounded-lg border border-purple-200 shadow-sm flex flex-col md:flex-row items-center justify-between">
+            <div class="mb-4 md:mb-0 md:ml-4 text-center md:text-right">
+                <p id="welcomeMessage" class="text-xl font-semibold text-purple-800">
+                    به مدیریت تسک‌های من خوش آمدید!
+                </p>
+            </div>
+            <div class="flex flex-col md:flex-row items-center w-full md:w-auto">
+                <input type="text" id="userNameInput" placeholder="نام خود را وارد کنید..."
+                       class="w-full md:w-48 p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 transition duration-200 mb-2 md:mb-0 md:ml-2">
+                <button id="saveNameButton"
+                        class="w-full md:w-auto bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105">
+                    ذخیره نام
+                </button>
+            </div>
+        </div>
+
+        <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">لیست تسک‌های شما</h1>
+
+        <!-- Add New Task Section -->
+        <div class="mb-8 bg-blue-50 p-5 rounded-lg border border-blue-200 shadow-sm">
+            <h2 class="text-xl font-semibold text-blue-800 mb-4">افزودن تسک جدید</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <input type="text" id="taskInput" placeholder="موضوع اصلی تسک..."
+                       class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200">
+                <select id="prioritySelect"
+                        class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200">
+                    <option value="low">اولویت: کم</option>
+                    <option value="medium">اولویت: متوسط</option>
+                    <option value="high">اولویت: زیاد</option>
+                </select>
+            </div>
+            <textarea id="subtasksInput" placeholder="زیرموضوع‌ها (هر خط یک زیرموضوع)"
+                      class="w-full p-3 mt-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 h-24 resize-y"></textarea>
+            <textarea id="notesInput" placeholder="یادداشت‌ها (اختیاری)"
+                      class="w-full p-3 mt-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 h-24 resize-y"></textarea>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                <div>
+                    <label for="startDateInput" class="block text-gray-700 text-sm font-bold mb-1">زمان شروع:</label>
+                    <input type="datetime-local" id="startDateInput"
+                           class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200">
+                </div>
+                <div>
+                    <label for="endDateInput" class="block text-gray-700 text-sm font-bold mb-1">زمان پایان:</label>
+                    <input type="datetime-local" id="endDateInput"
+                           class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200">
+                </div>
+            </div>
+            <button id="addTaskButton"
+                    class="w-full mt-6 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105">
+                افزودن تسک
+            </button>
+        </div>
+
+        <!-- Task Lists Section -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- To Do Tasks -->
+            <div id="todoSection"
+                 class="bg-red-50 p-4 rounded-lg border border-red-200 shadow-md min-h-[300px]"
+                 ondragover="allowDrop(event)" ondrop="drop(event, false)" ondragleave="dragLeave(event)">
+                <h2 class="text-xl font-semibold text-red-800 mb-4 text-center">تسک‌های انجام نشده</h2>
+                <ul id="todoTaskList" class="space-y-3 task-list-scroll">
+                    <!-- To Do Tasks will be dynamically added here -->
+                </ul>
+                <p id="noTodoTasksMessage" class="text-center text-gray-500 mt-4 hidden">هنوز تسک انجام نشده‌ای وجود ندارد.</p>
+            </div>
+
+            <!-- Completed Tasks -->
+            <div id="completedSection"
+                 class="bg-green-50 p-4 rounded-lg border border-green-200 shadow-md min-h-[300px]"
+                 ondragover="allowDrop(event)" ondrop="drop(event, true)" ondragleave="dragLeave(event)">
+                <h2 class="text-xl font-semibold text-green-800 mb-4 text-center">تسک‌های انجام شده</h2>
+                <ul id="completedTaskList" class="space-y-3 task-list-scroll">
+                    <!-- Completed Tasks will be dynamically added here -->
+                </ul>
+                <p id="noCompletedTasksMessage" class="text-center text-gray-500 mt-4 hidden">هنوز تسک انجام شده‌ای وجود ندارد.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Task Modal -->
+    <div id="editModalOverlay" class="modal-overlay">
+        <div class="modal-content">
+            <h3 class="text-2xl font-bold mb-4 text-gray-800">ویرایش تسک</h3>
+            <input type="hidden" id="editTaskId">
+            <label for="editTaskInput" class="block text-gray-700 text-sm font-bold mb-2">موضوع اصلی:</label>
+            <input type="text" id="editTaskInput"
+                   class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 mb-4">
+
+            <label for="editPrioritySelect" class="block text-gray-700 text-sm font-bold mb-2">اولویت:</label>
+            <select id="editPrioritySelect"
+                    class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 mb-4">
+                <option value="low">کم</option>
+                <option value="medium">متوسط</option>
+                <option value="high">زیاد</option>
+            </select>
+
+            <label for="editSubtasksInput" class="block text-gray-700 text-sm font-bold mb-2">زیرموضوع‌ها (هر خط یک زیرموضوع):</label>
+            <textarea id="editSubtasksInput"
+                      class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 h-24 resize-y mb-4"></textarea>
+
+            <label for="editNotesInput" class="block text-gray-700 text-sm font-bold mb-2">یادداشت‌ها:</label>
+            <textarea id="editNotesInput"
+                      class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200 h-24 resize-y mb-4"></textarea>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div>
+                    <label for="editStartDateInput" class="block text-gray-700 text-sm font-bold mb-1">زمان شروع:</label>
+                    <input type="datetime-local" id="editStartDateInput"
+                           class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200">
+                </div>
+                <div>
+                    <label for="editEndDateInput" class="block text-gray-700 text-sm font-bold mb-1">زمان پایان:</label>
+                    <input type="datetime-local" id="editEndDateInput"
+                           class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition duration-200">
+                </div>
+            </div>
+
+            <div class="flex justify-end space-x-2 rtl:space-x-reverse">
+                <button id="saveEditButton"
+                        class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105">
+                    ذخیره
+                </button>
+                <button id="cancelEditButton"
+                        class="bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105">
+                    لغو
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Array to store all tasks
+        let tasks = [];
+        let draggedTaskId = null; // Variable to store the ID of the task being dragged
+
+        // Get DOM elements for user name
+        const userNameInput = document.getElementById('userNameInput');
+        const saveNameButton = document.getElementById('saveNameButton');
+        const welcomeMessage = document.getElementById('welcomeMessage');
+
+        // Get DOM elements for adding new tasks
+        const taskInput = document.getElementById('taskInput');
+        const subtasksInput = document.getElementById('subtasksInput');
+        const notesInput = document.getElementById('notesInput');
+        const prioritySelect = document.getElementById('prioritySelect');
+        const startDateInput = document.getElementById('startDateInput');
+        const endDateInput = document.getElementById('endDateInput');
+        const addTaskButton = document.getElementById('addTaskButton');
+
+        // Get DOM elements for task lists
+        const todoTaskList = document.getElementById('todoTaskList');
+        const completedTaskList = document.getElementById('completedTaskList');
+        const noTodoTasksMessage = document.getElementById('noTodoTasksMessage');
+        const noCompletedTasksMessage = document.getElementById('noCompletedTasksMessage');
+
+        // Get DOM elements for sections (for drag and drop)
+        const todoSection = document.getElementById('todoSection');
+        const completedSection = document.getElementById('completedSection');
+
+        // Get DOM elements for the edit modal
+        const editModalOverlay = document.getElementById('editModalOverlay');
+        const editTaskId = document.getElementById('editTaskId');
+        const editTaskInput = document.getElementById('editTaskInput');
+        const editPrioritySelect = document.getElementById('editPrioritySelect');
+        const editSubtasksInput = document.getElementById('editSubtasksInput');
+        const editNotesInput = document.getElementById('editNotesInput');
+        const editStartDateInput = document.getElementById('editStartDateInput');
+        const editEndDateInput = document.getElementById('editEndDateInput');
+        const saveEditButton = document.getElementById('saveEditButton');
+        const cancelEditButton = document.getElementById('cancelEditButton');
+
+        // Function to load user name and tasks from localStorage
+        function loadApplicationData() {
+            // Load user name
+            const storedUserName = localStorage.getItem('userName');
+            if (storedUserName) {
+                userNameInput.value = storedUserName;
+                welcomeMessage.textContent = `سلام ${storedUserName}، به مدیریت تسک‌های من خوش آمدید!`;
+            } else {
+                welcomeMessage.textContent = `به مدیریت تسک‌های من خوش آمدید!`;
+            }
+
+            // Load tasks
+            const storedTasks = localStorage.getItem('tasks');
+            if (storedTasks) {
+                tasks = JSON.parse(storedTasks);
+            }
+            renderTasks(); // Render tasks immediately after loading
+        }
+
+        // Function to save user name to localStorage
+        function saveUserName() {
+            const userName = userNameInput.value.trim();
+            localStorage.setItem('userName', userName);
+            if (userName) {
+                welcomeMessage.textContent = `سلام ${userName}، به مدیریت تسک‌های من خوش آمدید!`;
+            } else {
+                welcomeMessage.textContent = `به مدیریت تسک‌های من خوش آمدید!`;
+            }
+        }
+
+        // Function to save tasks to localStorage
+        function saveTasks() {
+            localStorage.setItem('tasks', JSON.stringify(tasks));
+        }
+
+        // Function to render tasks in the UI, separating them into 'To Do' and 'Completed' lists
+        function renderTasks() {
+            todoTaskList.innerHTML = ''; // Clear existing 'To Do' tasks
+            completedTaskList.innerHTML = ''; // Clear existing 'Completed' tasks
+
+            const todoTasks = tasks.filter(task => !task.completed);
+            const completedTasks = tasks.filter(task => task.completed);
+
+            // Sort 'To Do' tasks by priority (high, medium, low)
+            const sortedTodoTasks = [...todoTasks].sort((a, b) => {
+                const priorityOrder = { 'high': 3, 'medium': 2, 'low': 1 };
+                return priorityOrder[b.priority] - priorityOrder[a.priority];
+            });
+
+            // Sort 'Completed' tasks by completion date (newest first)
+            const sortedCompletedTasks = [...completedTasks].sort((a, b) => {
+                 if (a.completedDate && b.completedDate) {
+                    return b.completedDate - a.completedDate;
+                }
+                return 0; // Maintain current order if dates are missing
+            });
+
+
+            // Render 'To Do' tasks
+            if (sortedTodoTasks.length === 0) {
+                noTodoTasksMessage.classList.remove('hidden');
+            } else {
+                noTodoTasksMessage.classList.add('hidden');
+                sortedTodoTasks.forEach(task => todoTaskList.appendChild(createTaskListItem(task)));
+            }
+
+            // Render 'Completed' tasks
+            if (sortedCompletedTasks.length === 0) {
+                noCompletedTasksMessage.classList.remove('hidden');
+            } else {
+                noCompletedTasksMessage.classList.add('hidden');
+                sortedCompletedTasks.forEach(task => completedTaskList.appendChild(createTaskListItem(task)));
+            }
+        }
+
+        // Helper function to create a single task list item (li element)
+        function createTaskListItem(task) {
+            const li = document.createElement('li');
+            li.className = `bg-white p-4 rounded-lg shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between transition duration-200 hover:shadow-md ${task.completed ? 'task-completed' : ''} ${'task-priority-' + task.priority}`;
+            li.setAttribute('data-id', task.id);
+            li.setAttribute('draggable', true); // Make task items draggable
+            li.addEventListener('dragstart', drag); // Add dragstart listener
+
+            const taskContent = document.createElement('div');
+            taskContent.className = 'flex-grow mb-2 md:mb-0';
+
+            // Task Header: Main topic, checkbox, and priority badge
+            const taskHeader = document.createElement('div');
+            taskHeader.className = 'flex items-center justify-between mb-2';
+
+            const taskTitleAndCheckbox = document.createElement('div');
+            taskTitleAndCheckbox.className = 'flex items-center';
+
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.checked = task.completed;
+            checkbox.className = 'ml-3 h-5 w-5 text-blue-600 rounded border-gray-300 focus:ring-blue-500';
+            checkbox.addEventListener('change', () => toggleTaskCompleted(task.id));
+            taskTitleAndCheckbox.appendChild(checkbox);
+
+            const taskTitle = document.createElement('span');
+            taskTitle.className = `text-lg font-medium text-gray-800 ${task.completed ? 'line-through' : ''}`;
+            taskTitle.textContent = task.text;
+            taskTitleAndCheckbox.appendChild(taskTitle);
+
+            taskHeader.appendChild(taskTitleAndCheckbox);
+
+            const priorityLabel = document.createElement('span');
+            priorityLabel.className = `text-xs px-2 py-1 rounded-full font-semibold ${getPriorityClass(task.priority)}`;
+            priorityLabel.textContent = getPriorityText(task.priority);
+            taskHeader.appendChild(priorityLabel);
+
+            taskContent.appendChild(taskHeader);
+
+            // Subtasks
+            if (task.subtasks && task.subtasks.length > 0) {
+                const subtasksList = document.createElement('ul');
+                subtasksList.className = 'text-sm text-gray-700 list-disc list-inside mt-1 pr-8';
+                task.subtasks.forEach(subtask => {
+                    const subtaskItem = document.createElement('li');
+                    subtaskItem.textContent = subtask;
+                    subtasksList.appendChild(subtaskItem);
+                });
+                taskContent.appendChild(subtasksList);
+            }
+
+            // Notes
+            if (task.notes) {
+                const notesParagraph = document.createElement('p');
+                notesParagraph.className = 'text-sm text-gray-600 mt-2 pr-8';
+                notesParagraph.textContent = `یادداشت: ${task.notes}`;
+                taskContent.appendChild(notesParagraph);
+            }
+
+            // Dates
+            if (task.startDate || task.endDate) {
+                const dateDiv = document.createElement('div');
+                dateDiv.className = 'text-sm text-gray-500 mt-2 pr-8';
+                if (task.startDate) {
+                    dateDiv.innerHTML += `شروع: ${formatDateTime(task.startDate)} <br>`;
+                }
+                if (task.endDate) {
+                    dateDiv.innerHTML += `پایان: ${formatDateTime(task.endDate)}`;
+                }
+                taskContent.appendChild(dateDiv);
+            }
+
+            li.appendChild(taskContent);
+
+            // Action Buttons (Edit, Delete)
+            const actionsDiv = document.createElement('div');
+            actionsDiv.className = 'flex flex-shrink-0 space-x-2 rtl:space-x-reverse mt-2 md:mt-0';
+
+            const editButton = document.createElement('button');
+            editButton.className = 'bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-2 px-4 rounded-lg transition duration-200 text-sm shadow';
+            editButton.textContent = 'ویرایش';
+            editButton.addEventListener('click', (event) => {
+                event.stopPropagation(); // Prevent drag from triggering on button click
+                openEditModal(task.id);
+            });
+            actionsDiv.appendChild(editButton);
+
+            const deleteButton = document.createElement('button');
+            deleteButton.className = 'bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg transition duration-200 text-sm shadow';
+            deleteButton.textContent = 'حذف';
+            deleteButton.addEventListener('click', (event) => {
+                event.stopPropagation(); // Prevent drag from triggering on button click
+                deleteTask(task.id);
+            });
+            actionsDiv.appendChild(deleteButton);
+
+            li.appendChild(actionsDiv);
+            return li;
+        }
+
+        // Helper to format date and time for display
+        function formatDateTime(isoString) {
+            if (!isoString) return '';
+            const date = new Date(isoString);
+            return new Intl.DateTimeFormat('fa-IR', {
+                year: 'numeric', month: 'numeric', day: 'numeric',
+                hour: '2-digit', minute: '2-digit', hour12: false
+            }).format(date);
+        }
+
+        // Helper to get priority text in Persian
+        function getPriorityText(priority) {
+            switch (priority) {
+                case 'low': return 'کم';
+                case 'medium': return 'متوسط';
+                case 'high': return 'زیاد';
+                default: return '';
+            }
+        }
+
+        // Helper to get priority class for badges
+        function getPriorityClass(priority) {
+            switch (priority) {
+                case 'low': return 'bg-green-200 text-green-800';
+                case 'medium': return 'bg-yellow-200 text-yellow-800';
+                case 'high': return 'bg-red-200 text-red-800';
+                default: return '';
+            }
+        }
+
+        // Event listener for saving user name
+        saveNameButton.addEventListener('click', saveUserName);
+        // Also save name when user presses Enter in the input field
+        userNameInput.addEventListener('keypress', (event) => {
+            if (event.key === 'Enter') {
+                saveUserName();
+            }
+        });
+
+
+        // Add New Task
+        addTaskButton.addEventListener('click', () => {
+            const taskText = taskInput.value.trim();
+            const notesText = notesInput.value.trim();
+            const priority = prioritySelect.value;
+            const subtasks = subtasksInput.value.split('\n').map(s => s.trim()).filter(s => s !== '');
+            const startDate = startDateInput.value ? new Date(startDateInput.value).toISOString() : null;
+            const endDate = endDateInput.value ? new Date(endDateInput.value).toISOString() : null;
+
+            if (taskText !== '') {
+                const newTask = {
+                    id: Date.now(), // Unique ID based on timestamp
+                    text: taskText,
+                    completed: false,
+                    notes: notesText,
+                    priority: priority,
+                    subtasks: subtasks,
+                    startDate: startDate,
+                    endDate: endDate,
+                    completedDate: null // To store when it was completed
+                };
+                tasks.push(newTask);
+                saveTasks();
+                renderTasks();
+                // Clear input fields
+                taskInput.value = '';
+                subtasksInput.value = '';
+                notesInput.value = '';
+                prioritySelect.value = 'low';
+                startDateInput.value = '';
+                endDateInput.value = '';
+            }
+        });
+
+        // Toggle Task Completed Status (used by checkbox)
+        function toggleTaskCompleted(id) {
+            const taskIndex = tasks.findIndex(task => task.id === id);
+            if (taskIndex > -1) {
+                tasks[taskIndex].completed = !tasks[taskIndex].completed;
+                if (tasks[taskIndex].completed) {
+                    tasks[taskIndex].completedDate = Date.now(); // Record completion time
+                } else {
+                    tasks[taskIndex].completedDate = null; // Clear completion time if unchecked
+                }
+                saveTasks();
+                renderTasks();
+            }
+        }
+
+        // Delete Task
+        function deleteTask(id) {
+            tasks = tasks.filter(task => task.id !== id);
+            saveTasks();
+            renderTasks();
+        }
+
+        // Open Edit Modal
+        function openEditModal(id) {
+            const task = tasks.find(task => task.id === id);
+            if (task) {
+                editTaskId.value = task.id;
+                editTaskInput.value = task.text;
+                editPrioritySelect.value = task.priority;
+                editSubtasksInput.value = task.subtasks ? task.subtasks.join('\n') : '';
+                editNotesInput.value = task.notes;
+                // Format ISO string to datetime-local format (YYYY-MM-DDTHH:mm)
+                editStartDateInput.value = task.startDate ? new Date(task.startDate).toISOString().slice(0, 16) : '';
+                editEndDateInput.value = task.endDate ? new Date(task.endDate).toISOString().slice(0, 16) : '';
+                editModalOverlay.style.display = 'flex';
+            }
+        }
+
+        // Save Edited Task
+        saveEditButton.addEventListener('click', () => {
+            const id = parseInt(editTaskId.value);
+            const taskIndex = tasks.findIndex(task => task.id === id);
+            if (taskIndex > -1) {
+                tasks[taskIndex].text = editTaskInput.value.trim();
+                tasks[taskIndex].priority = editPrioritySelect.value;
+                tasks[taskIndex].subtasks = editSubtasksInput.value.split('\n').map(s => s.trim()).filter(s => s !== '');
+                tasks[taskIndex].notes = editNotesInput.value.trim();
+                tasks[taskIndex].startDate = editStartDateInput.value ? new Date(editStartDateInput.value).toISOString() : null;
+                tasks[taskIndex].endDate = editEndDateInput.value ? new Date(editEndDateInput.value).toISOString() : null;
+                saveTasks();
+                renderTasks();
+                editModalOverlay.style.display = 'none';
+            }
+        });
+
+        // Cancel Edit
+        cancelEditButton.addEventListener('click', () => {
+            editModalOverlay.style.display = 'none';
+        });
+
+        // Close modal if clicked outside content
+        editModalOverlay.addEventListener('click', (event) => {
+            if (event.target === editModalOverlay) {
+                editModalOverlay.style.display = 'none';
+            }
+        });
+
+        // --- Drag and Drop Functions ---
+
+        // Called when a draggable element starts being dragged
+        function drag(event) {
+            draggedTaskId = event.target.getAttribute('data-id');
+            event.dataTransfer.setData('text/plain', draggedTaskId);
+            event.target.classList.add('opacity-50', 'border-2', 'border-blue-500'); // Visual feedback
+        }
+
+        // Called when a draggable element is dragged over a valid drop target
+        function allowDrop(event) {
+            event.preventDefault(); // Necessary to allow dropping
+            // Traverse up to find the actual section element if the target is a child
+            let currentTarget = event.target;
+            while (currentTarget && currentTarget.id !== 'todoSection' && currentTarget.id !== 'completedSection') {
+                currentTarget = currentTarget.parentElement;
+            }
+            if (currentTarget) {
+                currentTarget.classList.add('drop-target-active');
+            }
+        }
+
+        // Called when a draggable element leaves a valid drop target
+        function dragLeave(event) {
+            // Remove visual feedback for the drop target
+            let currentTarget = event.target;
+            while (currentTarget && currentTarget.id !== 'todoSection' && currentTarget.id !== 'completedSection') {
+                currentTarget = currentTarget.parentElement;
+            }
+            if (currentTarget) {
+                currentTarget.classList.remove('drop-target-active');
+            }
+        }
+
+        // Called when a draggable element is dropped on a valid drop target
+        function drop(event, isCompletedSection) {
+            event.preventDefault(); // Prevent default browser handling (e.g., opening dropped link)
+            const id = parseInt(event.dataTransfer.getData('text/plain'));
+            const taskIndex = tasks.findIndex(task => task.id === id);
+
+            if (taskIndex > -1) {
+                // Remove visual feedback from the dragged item
+                const draggedElement = document.querySelector(`[data-id="${id}"]`);
+                if (draggedElement) {
+                    draggedElement.classList.remove('opacity-50', 'border-2', 'border-blue-500');
+                }
+
+                // Remove visual feedback from the drop target (the section being dropped into)
+                let currentTarget = event.target;
+                while (currentTarget && currentTarget.id !== 'todoSection' && currentTarget.id !== 'completedSection') {
+                    currentTarget = currentTarget.parentElement;
+                }
+                if (currentTarget) {
+                    currentTarget.classList.remove('drop-target-active');
+                }
+
+                // Update the task's completed status based on where it was dropped
+                tasks[taskIndex].completed = isCompletedSection;
+                if (isCompletedSection) {
+                    tasks[taskIndex].completedDate = Date.now(); // Record completion time
+                } else {
+                    tasks[taskIndex].completedDate = null; // Clear completion time if moved back to todo
+                }
+
+                saveTasks();
+                renderTasks();
+            }
+            draggedTaskId = null; // Reset dragged task ID
+        }
+
+        // Initial load of user name and tasks when the window loads
+        window.onload = loadApplicationData;
+    </script>
+</body>
+</html>
